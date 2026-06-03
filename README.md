@@ -23,7 +23,7 @@ While this package has mainly been developed with the nz-elevation data in mind 
 
 - Python 3.11+
 - `uv`
-- GDAL available to the Python environment
+- GDAL available to the Python environment (for DEM build/export)
 
 
 To install:
@@ -50,7 +50,7 @@ This writes:
 To also export a GeoTIFF:
 
 ```bash
-uv run build-nz-dem --resolution 100 --export_tiff
+uv run build-nz-dem --resolution 100 --export-tiff
 ```
 
 > [!NOTE]
@@ -64,16 +64,31 @@ To rebuild or overwrite existing outputs (useful when new LiDAR gets added):
 uv run build-nz-dem --resolution 100 --overwrite
 ```
 
+Write outputs to a custom directory:
+
+```bash
+uv run build-nz-dem --resolution 100 --output-directory ./data
+```
+
 ## Command Options
 
 ```text
-uv run build-nz-dem --resolution <meters> --output_directory <dir> [--export_tiff] [--overwrite]
+uv run build-nz-dem --resolution <meters> --output-directory <dir> [--export-tiff] [--overwrite] [--compression NONE|LERC|LZW|DEFLATE|ZSTD]
 ```
 
 - `--resolution` / `-r`: required output resolution in meters
-- `--output_directory` / `-o`: directory for generated files, defaults to `./data`
-- `--export_tiff`: export the final DEM as a GeoTIFF as well as a VRT
+- `--output-directory` / `-o`: directory for generated files, defaults to `./data`
+- `--export-tiff`: export the final DEM as a GeoTIFF as well as a VRT
 - `--overwrite`: rebuild files even if they already exist
+- `--compression`: compression used for GeoTIFF export
+
+## Code Layout
+
+- `src/linz_s3_utils/cli.py`: command-line argument parsing
+- `src/linz_s3_utils/dem.py`: high-level DEM build workflow
+- `src/linz_s3_utils/gdal.py`: thin wrappers around GDAL operations
+- `src/linz_s3_utils/s3/s3_vrt.py`: helpers for building VRTs from S3 data
+- `src/linz_s3_utils/stac/_io.py`: STAC catalog search and filter helpers
 
 ## Notes
 

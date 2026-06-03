@@ -4,3 +4,6 @@ ignore = ["D100", "D104"]
 
 [lint.pydocstyle]
 convention = "google"
+
+[lint.per-file-ignores]
+"tests/**" = ["D"]

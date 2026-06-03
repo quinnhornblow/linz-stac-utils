@@ -6,22 +6,17 @@ readme = "README.md"
 authors = [
     { name = "Quinn Hornblow", email = "quinn.hornblow@protonmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "pystac>=1.14.3",
     "pystac-client>=0.9.0",
     "requests-cache>=1.3.1",
     "shapely>=2.1.2",
+    "odc-stac>=0.5.2",
+    "odc-geo>=0.5.1",
+    "pydantic>=2.13.3",
+    "tqdm>=4.67.3",
 ]
-
-[project.optional-dependencies]
-gdal = [
-    "cloudpathlib[s3]>=0.23.0",
-    "gdal>=3.11.4",
-]
-
-[project.scripts]
-build-nz-dem = "linz_s3_utils.cli:build_nz_dem"
 
 [build-system]
 requires = ["uv_build>=0.10.11,<0.11.0"]
@@ -31,12 +26,9 @@ build-backend = "uv_build"
 dev = [
     "deptry>=0.25.1",
     "notebook>=7.5.5",
-    "odc-stac>=0.5.2",
     "pre-commit>=4.5.1",
-    "pyproj>=3.7.2",
     "pytest>=9.0.3",
     "ruff>=0.15.10",
-    "shapely>=2.1.2",
 ]
 
 [tool.deptry]
