@@ -1,11 +1,67 @@
+import numpy as np
 import pytest
 import xarray as xr
 
-from linz_s3_utils.elevation import ElevationClient
+from linz_s3_utils.elevation import (
+    LIDAR_1M_DEM_COLLECTION_ID,
+    ElevationClient,
+    latest_elevation_surface,
+)
+
+
+def test_latest_elevation_surface_returns_last_non_null_time_slice():
+    dataset = xr.Dataset(
+        {
+            "elevation": xr.DataArray(
+                [[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]],
+                dims=("y", "time"),
+                coords={"time": [10, 20, 30], "y": [0, 1]},
+            )
+        }
+    )
+
+    result = latest_elevation_surface(dataset)
+
+    assert isinstance(result, xr.DataArray)
+    assert result.dims == ("y",)
+    assert result.sel(y=0).item() == 3.0
+    assert result.sel(y=1).item() == 5.0
+
+
+def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch):
+    dataset = xr.Dataset(
+        {
+            "elevation": xr.DataArray(
+                [[1.0, np.nan, 3.0]],
+                dims=("y", "time"),
+                coords={"time": [10, 20, 30], "y": [0]},
+            )
+        }
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_load(self, **kwargs):
+        captured.update(kwargs)
+        return dataset
+
+    monkeypatch.setattr(ElevationClient, "load", fake_load)
+
+    client = ElevationClient()
+    result = client.load_lidar_dem(resolution=1000)
+
+    assert isinstance(result, xr.DataArray)
+    assert captured == {
+        "collections": [LIDAR_1M_DEM_COLLECTION_ID],
+        "resampling": "bilinear",
+        "resolution": 1000,
+        "progress": pytest.importorskip("tqdm").tqdm,
+    }
+    assert result.sel(y=0).item() == 3.0
 
 
 @pytest.mark.skip(reason="Requires network access.")
 def test_lidar_dem_loading():
     client = ElevationClient()
-    ds = client.load_lidar_dem(resolution=1000)
-    assert isinstance(ds, xr.Dataset)
+    data = client.load_lidar_dem(resolution=1000)
+    assert isinstance(data, xr.DataArray)

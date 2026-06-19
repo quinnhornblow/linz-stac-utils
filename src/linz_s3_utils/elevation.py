@@ -4,6 +4,13 @@ from tqdm import tqdm
 from linz_s3_utils.stac import StacCatalogClient
 from linz_s3_utils.utils import last
 
+LIDAR_1M_DEM_COLLECTION_ID = "01JE4ZZWAG19KPKRHYJJP02HC9"
+
+
+def latest_elevation_surface(dataset: xr.Dataset) -> xr.DataArray:
+    """Reduce a loaded elevation dataset to the latest surface."""
+    return last(dataset["elevation"], dim="time")
+
 
 class ElevationClient(StacCatalogClient):
     """Client for accessing elevation data from a STAC catalog."""
@@ -13,14 +20,11 @@ class ElevationClient(StacCatalogClient):
 
     def load_lidar_dem(self, resolution: int) -> xr.DataArray:
         """Load a dataset from the New Zealand LiDAR 1m DEM collection."""
-        collection_id = (
-            "01JE4ZZWAG19KPKRHYJJP02HC9"  # Collection ID for New Zealand LiDAR 1m DEM
-        )
         ds = self.load(
-            collections=[collection_id],
+            collections=[LIDAR_1M_DEM_COLLECTION_ID],
             resampling="bilinear",
             resolution=resolution,
             progress=tqdm,
         )
 
-        return last(ds["elevation"], dim="time")
+        return latest_elevation_surface(ds)
