@@ -53,9 +53,11 @@ class StacCatalogClient:
         ids: list[str] | None = None,
         collections: list[str] | None = None,
     ) -> Iterator[Item]:
-        """Mimic `pystac_client.Client.search` on a STAC catalog.
+        """Return items from explicitly selected collections.
 
-        Additional references: https://github.com/radiantearth/stac-api-spec/tree/release/v1.0.0/item-search
+        This client currently supports loading full collections from a static
+        catalog. Other STAC search parameters are accepted for API
+        compatibility but are not implemented.
 
         Args:
             limit: Maximum number of items to return.
@@ -68,6 +70,18 @@ class StacCatalogClient:
         Returns:
             An iterator of `pystac.Item` objects that match the search criteria.
         """
+        unsupported_parameters = {
+            "limit": limit,
+            "bbox": bbox,
+            "datetime": datetime,
+            "intersects": intersects,
+            "ids": ids,
+        }
+        for parameter_name, parameter_value in unsupported_parameters.items():
+            if parameter_value is not None:
+                msg = f"{parameter_name} is not implemented for static catalog search."
+                raise NotImplementedError(msg)
+
         items = []
         if collections:
             for collection_id in collections:
@@ -90,14 +104,20 @@ class StacCatalogClient:
         progress: Any = None,
     ) -> xr.Dataset:
         """Mimic `odc.stac.load` on a STAC catalog."""
-        items = self.search(
+        items = list(
+            self.search(
             limit=limit,
             bbox=bbox,
             datetime=datetime,
             intersects=intersects,
             ids=ids,
             collections=collections,
+            )
         )
+        if not items:
+            msg = "No items selected for loading. Provide one or more collections."
+            raise ValueError(msg)
+
         ds = odc.stac.load(
             items,
             resampling=resampling,

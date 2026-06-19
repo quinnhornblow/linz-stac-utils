@@ -11,7 +11,30 @@ from linz_s3_utils.stac import StacCatalogClient
 def test_stac_catalog_client_instance():
     client = StacCatalogClient()
     assert isinstance(client.search(), Iterator)
-    assert isinstance(client.load(), xr.Dataset)
+
+
+def test_stac_load_requires_explicit_item_selection():
+    client = StacCatalogClient()
+
+    with pytest.raises(ValueError, match="No items selected"):
+        client.load()
+
+
+@pytest.mark.parametrize(
+    ("parameter_name", "parameter_value"),
+    [
+        ("limit", 1),
+        ("bbox", (0.0, 0.0, 1.0, 1.0)),
+        ("datetime", "2024-01-01/2024-12-31"),
+        ("intersects", {"type": "Point", "coordinates": [0.0, 0.0]}),
+        ("ids", ["AS21"]),
+    ],
+)
+def test_stac_search_rejects_unsupported_parameters(parameter_name, parameter_value):
+    client = StacCatalogClient()
+
+    with pytest.raises(NotImplementedError, match=parameter_name):
+        list(client.search(**{parameter_name: parameter_value}))
 
 
 def test_stac_invalid_catalog():
