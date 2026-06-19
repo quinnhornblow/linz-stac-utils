@@ -1,12 +1,17 @@
 import numpy as np
 import pytest
 import xarray as xr
+from types import SimpleNamespace
 
 from linz_s3_utils.elevation import (
     LIDAR_1M_DEM_COLLECTION_ID,
     ElevationClient,
     latest_elevation_surface,
 )
+
+
+class FakeCatalogClient:
+    pass
 
 
 def test_latest_elevation_surface_returns_last_non_null_time_slice():
@@ -47,10 +52,12 @@ def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch
 
     monkeypatch.setattr(ElevationClient, "load", fake_load)
 
-    client = ElevationClient()
+    fake_catalog_client = FakeCatalogClient()
+    client = ElevationClient(client=fake_catalog_client)
     result = client.load_lidar_dem(resolution=1000)
 
     assert isinstance(result, xr.DataArray)
+    assert client.client is fake_catalog_client
     assert captured == {
         "collections": [LIDAR_1M_DEM_COLLECTION_ID],
         "resampling": "bilinear",
@@ -60,7 +67,7 @@ def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch
     assert result.sel(y=0).item() == 3.0
 
 
-@pytest.mark.skip(reason="Requires network access.")
+@pytest.mark.integration
 def test_lidar_dem_loading():
     client = ElevationClient()
     data = client.load_lidar_dem(resolution=1000)

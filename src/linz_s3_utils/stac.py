@@ -55,10 +55,11 @@ class StacCatalogClient:
         self,
         catalog: Literal["elevation"] = "elevation",
         stac_io: StacApiIO | None = None,
+        client: Any | None = None,
     ):  # noqa: D107
         self.catalog = catalog
         self.stac_io = stac_io or DEFAULT_STAC_IO
-        self.client = Client.open(
+        self.client = client or Client.open(
             CatalogURLs[catalog.upper()].value,
             stac_io=self.stac_io,
         )

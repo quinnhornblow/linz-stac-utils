@@ -1,4 +1,5 @@
 import xarray as xr
+from typing import Any
 from tqdm import tqdm
 
 from linz_s3_utils.stac import StacCatalogClient
@@ -15,8 +16,8 @@ def latest_elevation_surface(dataset: xr.Dataset) -> xr.DataArray:
 class ElevationClient(StacCatalogClient):
     """Client for accessing elevation data from a STAC catalog."""
 
-    def __init__(self):  # noqa: D107
-        super().__init__(catalog="elevation")
+    def __init__(self, client: Any | None = None):  # noqa: D107
+        super().__init__(catalog="elevation", client=client)
 
     def load_lidar_dem(self, resolution: int) -> xr.DataArray:
         """Load a dataset from the New Zealand LiDAR 1m DEM collection."""
