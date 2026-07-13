@@ -56,12 +56,20 @@ class StacCatalogClient:
         catalog: Literal["elevation"] = "elevation",
         stac_io: StacApiIO | None = None,
         client: Any | None = None,
-    ):  # noqa: D107
+    ):
+        """Initialize a static LINZ STAC catalog client.
+
+        Args:
+            catalog: LINZ catalog to open.
+            stac_io: STAC IO configuration used when opening the catalog.
+            client: Preconfigured catalog client, primarily for testing.
+        """
         self.catalog = catalog
-        self.stac_io = stac_io or DEFAULT_STAC_IO
-        self.client = client or Client.open(
-            CatalogURLs[catalog.upper()].value,
-            stac_io=self.stac_io,
+        self.stac_io = DEFAULT_STAC_IO if stac_io is None else stac_io
+        self.client = (
+            Client.open(CatalogURLs[catalog.upper()].value, stac_io=self.stac_io)
+            if client is None
+            else client
         )
 
     def search(
@@ -126,12 +134,10 @@ class StacCatalogClient:
         """Mimic `odc.stac.load` on a STAC catalog."""
         items = list(
             self.search(
-            limit=limit,
-            bbox=bbox,
-            datetime=datetime,
-            intersects=intersects,
-            ids=ids,
-            collections=collections,
+                limit=limit,
+                datetime=datetime,
+                ids=ids,
+                collections=collections,
             )
         )
         if not items:

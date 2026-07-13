@@ -3,13 +3,13 @@ from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
-import linz_s3_utils.stac as stac_module
 import pytest
 import requests_cache
 import xarray as xr
 from pystac import Collection
 from pystac_client.stac_api_io import StacApiIO
 
+import linz_s3_utils.stac as stac_module
 from linz_s3_utils.stac import StacCatalogClient, build_stac_io
 
 
@@ -30,6 +30,11 @@ class FakeCatalogClient:
 
     def get_collection(self, collection_id):
         return self._collections[collection_id]
+
+
+class FalseyCatalogClient(FakeCatalogClient):
+    def __bool__(self):
+        return False
 
 
 def test_stac_search_returns_items_from_requested_collections():
@@ -57,13 +62,45 @@ def test_stac_load_passes_selected_items_to_odc_stac_load(monkeypatch):
 
     monkeypatch.setattr(stac_module.odc.stac, "load", fake_load)
 
-    client = StacCatalogClient(client=FakeCatalogClient({"lidar": FakeCollection([item])}))
+    client = StacCatalogClient(
+        client=FakeCatalogClient({"lidar": FakeCollection([item])})
+    )
     result = client.load(collections=["lidar"], resolution=250)
 
     assert captured["items"] == [item]
     assert captured["resolution"] == 250
     assert isinstance(result, xr.Dataset)
     assert list(result.data_vars) == ["elevation"]
+
+
+@pytest.mark.parametrize(
+    ("parameter_name", "parameter_value"),
+    [
+        ("bbox", (172.0, -43.0, 173.0, -42.0)),
+        ("intersects", {"type": "Point", "coordinates": [172.5, -42.5]}),
+    ],
+)
+def test_stac_load_passes_output_bounds_to_odc_stac_load(
+    monkeypatch, parameter_name, parameter_value
+):
+    item = SimpleNamespace(id="AS21")
+    dataset = xr.Dataset({"visual": xr.DataArray([1.0], dims=("y",))})
+    captured: dict[str, object] = {}
+
+    def fake_load(items, **kwargs):
+        captured["items"] = list(items)
+        captured.update(kwargs)
+        return dataset
+
+    monkeypatch.setattr(stac_module.odc.stac, "load", fake_load)
+
+    client = StacCatalogClient(
+        client=FakeCatalogClient({"lidar": FakeCollection([item])})
+    )
+    client.load(collections=["lidar"], **{parameter_name: parameter_value})
+
+    assert captured["items"] == [item]
+    assert captured[parameter_name] == parameter_value
 
 
 def test_stac_load_requires_explicit_item_selection():
@@ -123,6 +160,19 @@ def test_stac_catalog_client_uses_injected_stac_io(monkeypatch):
     }
 
 
+def test_stac_catalog_client_uses_falsey_injected_client(monkeypatch):
+    injected_client = FalseyCatalogClient({})
+
+    def fail_open(*args, **kwargs):
+        pytest.fail("Client.open should not be called for an injected client")
+
+    monkeypatch.setattr(stac_module.Client, "open", fail_open)
+
+    client = StacCatalogClient(client=injected_client)
+
+    assert client.client is injected_client
+
+
 def test_stac_get_collection_uses_injected_client():
     collection = FakeCollection([])
     client = StacCatalogClient(client=FakeCatalogClient({"lidar": collection}))
@@ -153,6 +203,8 @@ def test_stac_collection_metadata():
 @pytest.mark.integration
 def test_stac_item_metadata():
     client = StacCatalogClient()
-    metadata = client._get_item(client._get_collection("01JE4ZZWAG19KPKRHYJJP02HC9"), "AS21")
+    metadata = client._get_item(
+        client._get_collection("01JE4ZZWAG19KPKRHYJJP02HC9"), "AS21"
+    )
     assert metadata is not None
     assert metadata.id == "AS21"

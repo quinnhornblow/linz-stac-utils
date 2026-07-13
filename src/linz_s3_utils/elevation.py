@@ -1,5 +1,6 @@
-import xarray as xr
 from typing import Any
+
+import xarray as xr
 from tqdm import tqdm
 
 from linz_s3_utils.stac import StacCatalogClient

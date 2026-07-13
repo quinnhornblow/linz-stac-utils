@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 import xarray as xr
-from types import SimpleNamespace
 
 from linz_s3_utils.elevation import (
     LIDAR_1M_DEM_COLLECTION_ID,
