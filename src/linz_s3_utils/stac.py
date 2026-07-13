@@ -18,6 +18,9 @@ from pystac_client.warnings import FallbackToPystac, NoConformsTo
 filterwarnings("ignore", category=NoConformsTo)
 filterwarnings("ignore", category=FallbackToPystac)
 
+DEFAULT_CACHE_PATH = Path(__file__).parent / "stac_cache.sqlite"
+DEFAULT_CACHE_EXPIRY_SECONDS = 86400
+
 
 class CatalogURLs(Enum):  # noqa: D101
     ELEVATION = "https://nz-elevation.s3-ap-southeast-2.amazonaws.com/catalog.json"
@@ -29,20 +32,45 @@ class LINZCollection(BaseModel):  # noqa: D101
     linz_geospatial_category: Literal["dem"]
 
 
-stac_io = StacApiIO()
-cache_file = Path(__file__).parent / "stac_cache.sqlite"
-stac_io.session = requests_cache.CachedSession(
-    cache_name=str(cache_file),
-    expire_after=86400,  # Cache expires after 1 day
-)
+def build_stac_io(
+    cache_path: Path = DEFAULT_CACHE_PATH,
+    expire_after: int = DEFAULT_CACHE_EXPIRY_SECONDS,
+) -> StacApiIO:
+    """Build a STAC IO instance backed by a cached requests session."""
+    stac_io = StacApiIO()
+    stac_io.session = requests_cache.CachedSession(
+        cache_name=str(cache_path),
+        expire_after=expire_after,
+    )
+    return stac_io
+
+
+DEFAULT_STAC_IO = build_stac_io()
 
 
 class StacCatalogClient:
     """Search a STAC catalog with simple local filtering."""
 
-    def __init__(self, catalog: Literal["elevation"] = "elevation"):  # noqa: D107
+    def __init__(
+        self,
+        catalog: Literal["elevation"] = "elevation",
+        stac_io: StacApiIO | None = None,
+        client: Any | None = None,
+    ):
+        """Initialize a static LINZ STAC catalog client.
+
+        Args:
+            catalog: LINZ catalog to open.
+            stac_io: STAC IO configuration used when opening the catalog.
+            client: Preconfigured catalog client, primarily for testing.
+        """
         self.catalog = catalog
-        self.client = Client.open(CatalogURLs[catalog.upper()].value, stac_io=stac_io)
+        self.stac_io = DEFAULT_STAC_IO if stac_io is None else stac_io
+        self.client = (
+            Client.open(CatalogURLs[catalog.upper()].value, stac_io=self.stac_io)
+            if client is None
+            else client
+        )
 
     def search(
         self,
@@ -53,9 +81,11 @@ class StacCatalogClient:
         ids: list[str] | None = None,
         collections: list[str] | None = None,
     ) -> Iterator[Item]:
-        """Mimic `pystac_client.Client.search` on a STAC catalog.
+        """Return items from explicitly selected collections.
 
-        Additional references: https://github.com/radiantearth/stac-api-spec/tree/release/v1.0.0/item-search
+        This client currently supports loading full collections from a static
+        catalog. Other STAC search parameters are accepted for API
+        compatibility but are not implemented.
 
         Args:
             limit: Maximum number of items to return.
@@ -68,6 +98,18 @@ class StacCatalogClient:
         Returns:
             An iterator of `pystac.Item` objects that match the search criteria.
         """
+        unsupported_parameters = {
+            "limit": limit,
+            "bbox": bbox,
+            "datetime": datetime,
+            "intersects": intersects,
+            "ids": ids,
+        }
+        for parameter_name, parameter_value in unsupported_parameters.items():
+            if parameter_value is not None:
+                msg = f"{parameter_name} is not implemented for static catalog search."
+                raise NotImplementedError(msg)
+
         items = []
         if collections:
             for collection_id in collections:
@@ -90,14 +132,18 @@ class StacCatalogClient:
         progress: Any = None,
     ) -> xr.Dataset:
         """Mimic `odc.stac.load` on a STAC catalog."""
-        items = self.search(
-            limit=limit,
-            bbox=bbox,
-            datetime=datetime,
-            intersects=intersects,
-            ids=ids,
-            collections=collections,
+        items = list(
+            self.search(
+                limit=limit,
+                datetime=datetime,
+                ids=ids,
+                collections=collections,
+            )
         )
+        if not items:
+            msg = "No items selected for loading. Provide one or more collections."
+            raise ValueError(msg)
+
         ds = odc.stac.load(
             items,
             resampling=resampling,
