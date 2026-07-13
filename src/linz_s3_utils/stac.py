@@ -8,6 +8,7 @@ from warnings import filterwarnings
 import odc.stac
 import requests_cache
 import xarray as xr
+from odc.geo import MaybeCRS, SomeResolution
 from pydantic import BaseModel
 from pystac import Collection
 from pystac.item import Item
@@ -127,8 +128,8 @@ class StacCatalogClient:
         collections: list[str] | None = None,
         resampling: str | dict[str, str] | None = None,
         chunks: dict[str, int | Literal["auto"]] | None = None,
-        crs: str = "EPSG:2193",
-        resolution: int = 100,
+        crs: MaybeCRS = "EPSG:2193",
+        resolution: SomeResolution | None = 100,
         progress: Any = None,
     ) -> xr.Dataset:
         """Mimic `odc.stac.load` on a STAC catalog."""
