@@ -9,13 +9,14 @@ It exists to make LINZ elevation access simpler in Python scripts and notebooks.
 - opens the public LINZ elevation STAC catalog
 - fetches collection and item metadata
 - loads STAC results into `xarray` objects with `odc.stac`
-- provides an `ElevationClient` helper for the New Zealand LiDAR 1 m DEM collection
+- loads the latest New Zealand LiDAR 1 m DEM surface for an ODC-style spatial query
+- optionally exports the loaded surface as a Cloud Optimized GeoTIFF
 
 ## Current Scope
 
 - Python API only
 - focused on the public `nz-elevation` catalog
-- aimed at data access and loading rather than DEM export or a general CLI workflow
+- aimed at data access, loading, and optional DEM export rather than a general CLI workflow
 
 ## Installation
 
@@ -32,13 +33,42 @@ uv sync
 
 ## Usage
 
-Load the New Zealand LiDAR 1 m DEM collection at a chosen output resolution:
+Load the latest New Zealand LiDAR 1 m DEM surface for a bounding box, at a chosen output resolution:
 
 ```python
-from linz_s3_utils.elevation import ElevationClient
+from linz_s3_utils.elevation import load_elevation
 
-client = ElevationClient()
-lidar = client.load_lidar_dem(resolution=1000)
+lidar = load_elevation(
+    bbox=(172.6300, -43.5350, 172.6400, -43.5250),
+    resolution=10,
+    output_path="christchurch-dem.tif",
+)
+```
+
+`load_elevation()` follows the spatial portion of `odc.stac.load`:
+
+- Provide either `bbox` or `intersects`; calls without a spatial selector are rejected.
+- `bbox` is `(min_longitude, min_latitude, max_longitude, max_latitude)` in `EPSG:4326`.
+- `intersects` accepts an ODC geometry, Shapely geometry, GeoJSON mapping, or an object with `__geo_interface__`; Shapely and GeoJSON inputs are interpreted as `EPSG:4326`.
+- `crs` defaults to `EPSG:2193`; `resolution` is in the output CRS units and defaults to ODC's source-grid resolution.
+- `intersects` crops and masks the output polygon with all touched pixels retained.
+- Set `overwrite=True` to replace an existing output file.
+
+Use a polygon when the rectangular `bbox` is not precise enough:
+
+```python
+from shapely.geometry import Polygon
+
+lidar = load_elevation(
+    intersects=Polygon(
+        [
+            (172.6300, -43.5350),
+            (172.6400, -43.5350),
+            (172.6350, -43.5250),
+        ]
+    ),
+    resolution=10,
+)
 ```
 
 For lower-level catalog access, use `StacCatalogClient` directly:

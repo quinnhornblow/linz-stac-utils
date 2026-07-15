@@ -15,7 +15,6 @@ dependencies = [
     "odc-stac>=0.5.2",
     "odc-geo>=0.5.1",
     "pydantic>=2.13.3",
-    "tqdm>=4.67.3",
 ]
 
 [build-system]
