@@ -84,7 +84,6 @@ def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch
         crs="EPSG:4326",
         resolution=1000,
         bbox=(172.0, -43.0, 173.0, -42.0),
-        intersects={"type": "Point", "coordinates": [172.5, -42.5]},
     )
 
     assert isinstance(result, xr.DataArray)
@@ -96,7 +95,7 @@ def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch
         "crs": "EPSG:4326",
         "resolution": 1000,
         "bbox": (172.0, -43.0, 173.0, -42.0),
-        "intersects": {"type": "Point", "coordinates": [172.5, -42.5]},
+        "intersects": None,
         "progress": None,
     }
     assert result.sel(y=0).item() == 3.0

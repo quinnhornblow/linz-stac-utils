@@ -47,7 +47,7 @@ lidar = load_elevation(
 
 `load_elevation()` follows the spatial portion of `odc.stac.load`:
 
-- Provide either `bbox` or `intersects`; calls without a spatial selector are rejected.
+- Provide exactly one of `bbox` or `intersects`; calls with neither or both are rejected.
 - `bbox` is `(min_longitude, min_latitude, max_longitude, max_latitude)` in `EPSG:4326`.
 - `intersects` accepts an ODC geometry, Shapely geometry, GeoJSON mapping, or an object with `__geo_interface__`; Shapely and GeoJSON inputs are interpreted as `EPSG:4326`.
 - `crs` defaults to `EPSG:2193`; `resolution` is in the output CRS units and defaults to ODC's source-grid resolution.
@@ -79,11 +79,14 @@ from linz_s3_utils.stac import StacCatalogClient
 client = StacCatalogClient()
 dataset = client.load(
     collections=["01JE4ZZWAG19KPKRHYJJP02HC9"],
+    bbox=(172.6300, -43.5350, 172.6400, -43.5250),
     resolution=1000,
 )
 ```
 
-`load()` defaults to `EPSG:2193`, and resolutions are specified in metres.
+`load()` filters static-catalog items locally before loading them. It supports
+`bbox`, `intersects`, item IDs, and a positive result limit. It defaults to
+`EPSG:2193`, and resolutions are specified in metres.
 
 See `src/examples/elevation.ipynb` for an interactive example.
 
