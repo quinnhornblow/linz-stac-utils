@@ -47,6 +47,7 @@ lidar = load_elevation(
 
 `load_elevation()` follows the spatial portion of `odc.stac.load`:
 
+- Provide either `bbox` or `intersects`; calls without a spatial selector are rejected.
 - `bbox` is `(min_longitude, min_latitude, max_longitude, max_latitude)` in `EPSG:4326`.
 - `intersects` accepts an ODC geometry, Shapely geometry, GeoJSON mapping, or an object with `__geo_interface__`; Shapely and GeoJSON inputs are interpreted as `EPSG:4326`.
 - `crs` defaults to `EPSG:2193`; `resolution` is in the output CRS units and defaults to ODC's source-grid resolution.

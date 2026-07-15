@@ -134,6 +134,47 @@ def test_load_lidar_dem_defaults_to_nztm_and_bilinear(monkeypatch):
     }
 
 
+def test_load_lidar_dem_accepts_positional_resolution(monkeypatch):
+    dataset = xr.Dataset(
+        {
+            "elevation": xr.DataArray(
+                [[1.0]],
+                dims=("y", "time"),
+                coords={"time": [10], "y": [0]},
+            )
+        }
+    )
+    captured: dict[str, object] = {}
+
+    def fake_load(self, **kwargs):
+        captured.update(kwargs)
+        return dataset
+
+    monkeypatch.setattr(ElevationClient, "load", fake_load)
+
+    ElevationClient(client=FakeCatalogClient()).load_lidar_dem(1000)
+
+    assert captured["resolution"] == 1000
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"output_path": Path("elevation.tif")},
+    ],
+)
+def test_load_elevation_requires_bbox_or_intersects(monkeypatch, kwargs):
+    def fake_load_lidar_dem(self, **kwargs):
+        pytest.fail("load_lidar_dem should not be called")
+
+    monkeypatch.setattr(ElevationClient, "load_lidar_dem", fake_load_lidar_dem)
+    monkeypatch.setattr(ElevationClient, "__init__", lambda self: None)
+
+    with pytest.raises(ValueError, match="Provide bbox or intersects."):
+        load_elevation(**kwargs)
+
+
 @pytest.mark.parametrize(
     ("intersects", "expected_crs"),
     [
@@ -195,16 +236,17 @@ def test_load_elevation_masks_intersects_and_writes_cog(monkeypatch, tmp_path: P
     polygon = Polygon(
         [(0.0, 0.0), (2.0, 0.0), (2.0, 0.1), (0.1, 0.1), (0.1, 2.0), (0.0, 2.0)]
     )
-    captured: dict[str, object] = {}
+    load_kwargs: dict[str, object] = {}
+    cog_call: dict[str, object] = {}
 
     def fake_load_lidar_dem(self, **kwargs):
-        captured["kwargs"] = kwargs
+        load_kwargs.update(kwargs)
         return data
 
     def fake_write_cog(array, output_path, overwrite=False):
-        captured["array"] = array
-        captured["output_path"] = output_path
-        captured["overwrite"] = overwrite
+        cog_call["array"] = array
+        cog_call["output_path"] = output_path
+        cog_call["overwrite"] = overwrite
         return output_path
 
     monkeypatch.setattr(ElevationClient, "load_lidar_dem", fake_load_lidar_dem)
@@ -219,7 +261,7 @@ def test_load_elevation_masks_intersects_and_writes_cog(monkeypatch, tmp_path: P
         overwrite=True,
     )
 
-    assert isinstance(captured["kwargs"]["intersects"], Geometry)
+    assert isinstance(load_kwargs["intersects"], Geometry)
     assert np.array_equal(
         np.isnan(result.values),
         np.array([[False, True], [False, False]]),
@@ -229,9 +271,38 @@ def test_load_elevation_masks_intersects_and_writes_cog(monkeypatch, tmp_path: P
         np.array([[1.0, np.nan], [3.0, 4.0]], dtype=np.float32),
         equal_nan=True,
     )
-    assert captured["array"] is result
-    assert captured["output_path"] == output_path
-    assert captured["overwrite"] is True
+    assert cog_call["array"] is result
+    assert cog_call["output_path"] == output_path
+    assert cog_call["overwrite"] is True
+
+
+def test_load_elevation_computes_delayed_cog_write(monkeypatch, tmp_path: Path):
+    data = make_georegistered_array().chunk({"latitude": 1, "longitude": 1})
+    computed = False
+
+    class FakeDelayedWrite:
+        def compute(self):
+            nonlocal computed
+            computed = True
+
+    def fake_load_lidar_dem(self, **kwargs):
+        return data
+
+    def fake_write_cog(array, output_path, overwrite=False):
+        assert array.chunks is not None
+        return FakeDelayedWrite()
+
+    monkeypatch.setattr(ElevationClient, "load_lidar_dem", fake_load_lidar_dem)
+    monkeypatch.setattr(ElevationClient, "__init__", lambda self: None)
+    monkeypatch.setattr("linz_s3_utils.elevation.write_cog", fake_write_cog)
+
+    load_elevation(
+        bbox=(172.0, -43.0, 173.0, -42.0),
+        chunks={"x": 1, "y": 1},
+        output_path=tmp_path / "elevation.tif",
+    )
+
+    assert computed
 
 
 def test_load_elevation_returns_unmasked_result_without_intersects(monkeypatch):

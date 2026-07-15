@@ -27,11 +27,11 @@ class ElevationClient(StacCatalogClient):
 
     def load_lidar_dem(
         self,
+        resolution: SomeResolution | None = None,
         *,
         resampling: str | dict[str, str] | None = "bilinear",
         chunks: dict[str, int | Literal["auto"]] | None = None,
         crs: MaybeCRS = "EPSG:2193",
-        resolution: SomeResolution | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         intersects: Any = None,
         progress: Any = None,
@@ -95,6 +95,9 @@ def load_elevation(
     Returns:
         The loaded elevation surface.
     """
+    if bbox is None and intersects is None:
+        msg = "Provide bbox or intersects."
+        raise ValueError(msg)
     geometry = None if intersects is None else _normalize_intersects(intersects)
     elevation = ElevationClient().load_lidar_dem(
         resampling=resampling,
@@ -108,5 +111,7 @@ def load_elevation(
     if geometry is not None:
         elevation = crop(elevation, geometry, apply_mask=True, all_touched=True)
     if output_path is not None:
-        write_cog(elevation, output_path, overwrite=overwrite)
+        cog_write = write_cog(elevation, output_path, overwrite=overwrite)
+        if callable(compute := getattr(cog_write, "compute", None)):
+            compute()
     return elevation
