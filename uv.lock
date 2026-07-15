@@ -883,6 +883,7 @@ source = { editable = "." }
 dependencies = [
     { name = "odc-geo" },
     { name = "odc-stac" },
+    { name = "platformdirs" },
     { name = "pydantic" },
     { name = "pystac" },
     { name = "pystac-client" },
@@ -903,6 +904,7 @@ dev = [
 requires-dist = [
     { name = "odc-geo", specifier = ">=0.5.1" },
     { name = "odc-stac", specifier = ">=0.5.2" },
+    { name = "platformdirs", specifier = ">=4.9.4" },
     { name = "pydantic", specifier = ">=2.13.3" },
     { name = "pystac", specifier = ">=1.14.3" },
     { name = "pystac-client", specifier = ">=0.9.0" },

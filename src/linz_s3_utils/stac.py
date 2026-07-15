@@ -9,6 +9,7 @@ import odc.stac
 import requests_cache
 import xarray as xr
 from odc.geo import MaybeCRS, SomeResolution
+from platformdirs import user_cache_path
 from pydantic import BaseModel
 from pystac import Collection
 from pystac.item import Item
@@ -19,7 +20,7 @@ from pystac_client.warnings import FallbackToPystac, NoConformsTo
 filterwarnings("ignore", category=NoConformsTo)
 filterwarnings("ignore", category=FallbackToPystac)
 
-DEFAULT_CACHE_PATH = Path(__file__).parent / "stac_cache.sqlite"
+DEFAULT_CACHE_PATH = user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
 DEFAULT_CACHE_EXPIRY_SECONDS = 86400
 
 
@@ -36,17 +37,18 @@ class LINZCollection(BaseModel):  # noqa: D101
 def build_stac_io(
     cache_path: Path = DEFAULT_CACHE_PATH,
     expire_after: int = DEFAULT_CACHE_EXPIRY_SECONDS,
+    *,
+    cache: bool = True,
 ) -> StacApiIO:
-    """Build a STAC IO instance backed by a cached requests session."""
+    """Build a STAC IO instance, optionally backed by a cached requests session."""
     stac_io = StacApiIO()
-    stac_io.session = requests_cache.CachedSession(
-        cache_name=str(cache_path),
-        expire_after=expire_after,
-    )
+    if cache:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        stac_io.session = requests_cache.CachedSession(
+            cache_name=str(cache_path),
+            expire_after=expire_after,
+        )
     return stac_io
-
-
-DEFAULT_STAC_IO = build_stac_io()
 
 
 class StacCatalogClient:
@@ -66,7 +68,7 @@ class StacCatalogClient:
             client: Preconfigured catalog client, primarily for testing.
         """
         self.catalog = catalog
-        self.stac_io = DEFAULT_STAC_IO if stac_io is None else stac_io
+        self.stac_io = build_stac_io() if stac_io is None else stac_io
         self.client = (
             Client.open(CatalogURLs[catalog.upper()].value, stac_io=self.stac_io)
             if client is None

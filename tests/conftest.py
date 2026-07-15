@@ -1,4 +1,7 @@
 import pytest
+from pystac_client.stac_api_io import StacApiIO
+
+import linz_s3_utils.stac as stac_module
 
 
 def pytest_addoption(parser):
@@ -20,3 +23,10 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(skip_integration)
+
+
+@pytest.fixture(autouse=True)
+def disable_default_stac_cache_for_unit_tests(monkeypatch, request):
+    """Keep unit tests from creating a cache in the developer's home directory."""
+    if "integration" not in request.node.keywords:
+        monkeypatch.setattr(stac_module, "build_stac_io", lambda: StacApiIO())
