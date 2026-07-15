@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 import requests_cache
 import xarray as xr
+from platformdirs import user_cache_path
 from pystac import Collection
 from pystac_client.stac_api_io import StacApiIO
 
@@ -132,11 +133,54 @@ def test_stac_invalid_catalog():
         StacCatalogClient(catalog="invalid")  # ty:ignore[invalid-argument-type]
 
 
-def test_build_stac_io_creates_cached_session(tmp_path: Path):
-    stac_io = build_stac_io(cache_path=tmp_path / "stac.sqlite", expire_after=60)
+def test_default_cache_path_uses_user_cache_directory():
+    assert stac_module.DEFAULT_CACHE_PATH == (
+        user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
+    )
+
+
+def test_build_stac_io_creates_cached_session_and_parent_directory(tmp_path: Path):
+    cache_path = tmp_path / "cache" / "stac.sqlite"
+
+    stac_io = build_stac_io(cache_path=cache_path, expire_after=60)
 
     assert isinstance(stac_io, StacApiIO)
     assert isinstance(stac_io.session, requests_cache.CachedSession)
+    assert cache_path.parent.is_dir()
+
+
+def test_build_stac_io_expands_cache_path_before_creating_parent(
+    monkeypatch, tmp_path: Path
+):
+    home_path = tmp_path / "home"
+    work_path = tmp_path / "work"
+    home_path.mkdir()
+    work_path.mkdir()
+    monkeypatch.setenv("HOME", str(home_path))
+    monkeypatch.chdir(work_path)
+
+    stac_io = build_stac_io(cache_path=Path("~/cache/stac.sqlite"), expire_after=60)
+
+    assert isinstance(stac_io.session, requests_cache.CachedSession)
+    assert (home_path / "cache").is_dir()
+    assert not (work_path / "~").exists()
+
+
+def test_build_stac_io_can_disable_caching():
+    stac_io = build_stac_io(cache=False)
+
+    assert isinstance(stac_io, StacApiIO)
+    assert not isinstance(stac_io.session, requests_cache.CachedSession)
+
+
+def test_stac_catalog_client_builds_default_stac_io_when_initialized(monkeypatch):
+    default_stac_io = StacApiIO()
+
+    monkeypatch.setattr(stac_module, "build_stac_io", lambda: default_stac_io)
+
+    client = StacCatalogClient(client=FakeCatalogClient({}))
+
+    assert client.stac_io is default_stac_io
 
 
 def test_stac_catalog_client_uses_injected_stac_io(monkeypatch):

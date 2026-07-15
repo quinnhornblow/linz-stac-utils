@@ -90,7 +90,24 @@ See `src/examples/elevation.ipynb` for an interactive example.
 ## Notes
 
 - network access is required to read remote catalog and raster data
-- STAC API responses are cached locally with `requests-cache`
+- STAC API responses are cached locally with `requests-cache` for one day by default. The cache is created when a client is initialized in your platform's user cache directory, rather than in the installed package directory.
+
+Configure caching by creating and injecting a STAC IO instance:
+
+```python
+from pathlib import Path
+
+from linz_s3_utils.stac import StacCatalogClient, build_stac_io
+
+client = StacCatalogClient(
+    stac_io=build_stac_io(
+        cache_path=Path("data/stac.sqlite"),
+        expire_after=3600,
+    )
+)
+```
+
+Pass `cache=False` to `build_stac_io()` to use an uncached STAC session.
 
 ## Development
 
