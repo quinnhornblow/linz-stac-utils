@@ -43,6 +43,7 @@ def build_stac_io(
     """Build a STAC IO instance, optionally backed by a cached requests session."""
     stac_io = StacApiIO()
     if cache:
+        cache_path = cache_path.expanduser()
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         stac_io.session = requests_cache.CachedSession(
             cache_name=str(cache_path),

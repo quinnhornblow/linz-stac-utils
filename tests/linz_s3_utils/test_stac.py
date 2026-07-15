@@ -149,6 +149,23 @@ def test_build_stac_io_creates_cached_session_and_parent_directory(tmp_path: Pat
     assert cache_path.parent.is_dir()
 
 
+def test_build_stac_io_expands_cache_path_before_creating_parent(
+    monkeypatch, tmp_path: Path
+):
+    home_path = tmp_path / "home"
+    work_path = tmp_path / "work"
+    home_path.mkdir()
+    work_path.mkdir()
+    monkeypatch.setenv("HOME", str(home_path))
+    monkeypatch.chdir(work_path)
+
+    stac_io = build_stac_io(cache_path=Path("~/cache/stac.sqlite"), expire_after=60)
+
+    assert isinstance(stac_io.session, requests_cache.CachedSession)
+    assert (home_path / "cache").is_dir()
+    assert not (work_path / "~").exists()
+
+
 def test_build_stac_io_can_disable_caching():
     stac_io = build_stac_io(cache=False)
 
