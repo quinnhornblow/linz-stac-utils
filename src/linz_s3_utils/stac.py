@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from enum import Enum
 from functools import lru_cache
+from itertools import chain, islice
 from pathlib import Path
 from typing import Any, Literal
 from warnings import filterwarnings
@@ -8,7 +9,7 @@ from warnings import filterwarnings
 import odc.stac
 import requests_cache
 import xarray as xr
-from odc.geo import MaybeCRS, SomeResolution
+from odc.geo import Geometry, MaybeCRS, SomeResolution
 from platformdirs import user_cache_path
 from pydantic import BaseModel
 from pystac import Collection
@@ -16,6 +17,9 @@ from pystac.item import Item
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from pystac_client.warnings import FallbackToPystac, NoConformsTo
+from shapely.errors import ShapelyError
+from shapely.geometry import box, shape
+from shapely.geometry.base import BaseGeometry
 
 filterwarnings("ignore", category=NoConformsTo)
 filterwarnings("ignore", category=FallbackToPystac)
@@ -32,6 +36,44 @@ class LINZCollection(BaseModel):  # noqa: D101
     id: str
     title: str
     linz_geospatial_category: Literal["dem"]
+
+
+def _geometry_from_intersects(intersects: Any) -> BaseGeometry:
+    """Convert a supported intersects value to WGS84 Shapely geometry."""
+    if isinstance(intersects, Geometry):
+        return intersects.to_crs("EPSG:4326").geom
+    if isinstance(intersects, BaseGeometry):
+        return intersects
+    if isinstance(intersects, dict):
+        return Geometry(intersects, "EPSG:4326").geom
+
+    geometry = getattr(intersects, "__geo_interface__", None)
+    if geometry is None:
+        msg = "Can't interpret intersects as geometry."
+        raise ValueError(msg)
+    crs = getattr(intersects, "crs", None) or "EPSG:4326"
+    return Geometry(geometry, crs).to_crs("EPSG:4326").geom
+
+
+def _geometry_from_item(item: Item) -> BaseGeometry | None:
+    """Read an item's WGS84 geometry, falling back to its bounding box."""
+    if item.geometry is not None:
+        try:
+            item_geometry = shape(item.geometry)
+            if item_geometry.is_valid and not item_geometry.is_empty:
+                return item_geometry
+        except (ShapelyError, KeyError, TypeError, ValueError):
+            pass
+
+    if item.bbox is None:
+        return None
+    if len(item.bbox) == 4:
+        west, south, east, north = item.bbox
+    elif len(item.bbox) == 6:
+        west, south, _, east, north, _ = item.bbox
+    else:
+        return None
+    return box(west, south, east, north)
 
 
 def build_stac_io(
@@ -53,7 +95,7 @@ def build_stac_io(
 
 
 class StacCatalogClient:
-    """Search a STAC catalog with simple local filtering."""
+    """Search and load explicitly selected static-catalog collections."""
 
     def __init__(
         self,
@@ -81,45 +123,68 @@ class StacCatalogClient:
         limit: int | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         datetime: str | None = None,
-        intersects: dict | None = None,
+        intersects: Any = None,
         ids: list[str] | None = None,
         collections: list[str] | None = None,
     ) -> Iterator[Item]:
-        """Return items from explicitly selected collections.
+        """Return locally filtered items from explicitly selected collections.
 
-        This client currently supports loading full collections from a static
-        catalog. Other STAC search parameters are accepted for API
-        compatibility but are not implemented.
+        Item geometry is preferred for spatial filtering, with item bounding
+        boxes used as a fallback. Items without either are excluded from
+        spatial searches. Boundary contact counts as an intersection.
 
         Args:
-            limit: Maximum number of items to return.
-            bbox: Requested bounding box.
-            datetime: Single date+time, or a range ('/' separator). Use double dots .. for open date ranges.
-            intersects: Searches items by performing intersection between their geometry and provided GeoJSON geometry.
-            ids: Array of Item ids to return.
-            collections: Array of one or more Collection IDs that each matching Item must be in.
+            limit: Positive maximum number of filtered items to return.
+            bbox: WGS84 bounds as ``(west, south, east, north)``. Mutually
+                exclusive with ``intersects``.
+            datetime: Unsupported date or date range filter.
+            intersects: WGS84 GeoJSON or Shapely geometry, or a CRS-aware ODC
+                geometry or object implementing ``__geo_interface__``.
+                Mutually exclusive with ``bbox``.
+            ids: Item IDs to include.
+            collections: Collection IDs whose items should be searched.
 
         Returns:
             An iterator of `pystac.Item` objects that match the search criteria.
-        """
-        unsupported_parameters = {
-            "limit": limit,
-            "bbox": bbox,
-            "datetime": datetime,
-            "intersects": intersects,
-            "ids": ids,
-        }
-        for parameter_name, parameter_value in unsupported_parameters.items():
-            if parameter_value is not None:
-                msg = f"{parameter_name} is not implemented for static catalog search."
-                raise NotImplementedError(msg)
 
-        items = []
-        if collections:
-            for collection_id in collections:
-                collection = self._get_collection(collection_id)
-                items.extend(collection.get_items())
-        return iter(items)
+        Raises:
+            NotImplementedError: If ``datetime`` is provided.
+            ValueError: If the spatial selectors conflict, ``limit`` is not
+                positive, or ``intersects`` cannot be interpreted.
+        """
+        if bbox is not None and intersects is not None:
+            msg = "bbox and intersects are mutually exclusive."
+            raise ValueError(msg)
+
+        if datetime is not None:
+            msg = "datetime is not implemented for static catalog search."
+            raise NotImplementedError(msg)
+
+        if limit is not None and limit <= 0:
+            msg = "limit must be positive."
+            raise ValueError(msg)
+
+        query_geometry = None
+        if bbox is not None:
+            query_geometry = box(*bbox)
+        elif intersects is not None:
+            query_geometry = _geometry_from_intersects(intersects)
+
+        items = chain.from_iterable(
+            self._get_collection(collection_id).get_items()
+            for collection_id in collections or []
+        )
+        if ids is not None:
+            item_ids = set(ids)
+            items = (item for item in items if item.id in item_ids)
+        if query_geometry is not None:
+            items = (
+                item
+                for item in items
+                if (item_geometry := _geometry_from_item(item)) is not None
+                and item_geometry.intersects(query_geometry)
+            )
+        return items if limit is None else islice(items, limit)
 
     def load(
         self,
@@ -135,17 +200,23 @@ class StacCatalogClient:
         resolution: SomeResolution | None = 100,
         progress: Any = None,
     ) -> xr.Dataset:
-        """Mimic `odc.stac.load` on a STAC catalog."""
+        """Filter static-catalog items and load them with ``odc.stac.load``.
+
+        Spatial selectors reduce the source items locally and are also passed
+        to ODC to constrain the output grid.
+        """
         items = list(
             self.search(
                 limit=limit,
+                bbox=bbox,
                 datetime=datetime,
+                intersects=intersects,
                 ids=ids,
                 collections=collections,
             )
         )
         if not items:
-            msg = "No items selected for loading. Provide one or more collections."
+            msg = "No items match the selected collections and filters."
             raise ValueError(msg)
 
         ds = odc.stac.load(
