@@ -16,7 +16,7 @@ LIDAR_1M_DEM_COLLECTION_ID = "01JE4ZZWAG19KPKRHYJJP02HC9"
 
 def latest_elevation_surface(dataset: xr.Dataset) -> xr.DataArray:
     """Reduce a loaded elevation dataset to the latest surface."""
-    return last(dataset["elevation"], dim="time")
+    return last(dataset["elevation"].sortby("time"), dim="time")
 
 
 class ElevationClient(StacCatalogClient):

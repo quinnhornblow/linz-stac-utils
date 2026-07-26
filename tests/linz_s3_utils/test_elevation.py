@@ -58,6 +58,22 @@ def test_latest_elevation_surface_returns_last_non_null_time_slice():
     assert result.sel(y=1).item() == 5.0
 
 
+def test_latest_elevation_surface_uses_the_latest_timestamp():
+    dataset = xr.Dataset(
+        {
+            "elevation": xr.DataArray(
+                [[10.0], [20.0]],
+                dims=("time", "x"),
+                coords={"time": ["2024-02-01", "2024-01-01"], "x": [0]},
+            )
+        }
+    )
+
+    result = latest_elevation_surface(dataset)
+
+    assert result.item() == 10.0
+
+
 def test_load_lidar_dem_uses_lidar_collection_and_returns_data_array(monkeypatch):
     dataset = xr.Dataset(
         {

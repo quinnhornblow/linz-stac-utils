@@ -1,4 +1,6 @@
 # ruff: noqa: D103
+import gc
+import weakref
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -506,6 +508,20 @@ def test_stac_get_collection_uses_injected_client():
     metadata = client._get_collection("lidar")
 
     assert metadata is collection
+
+
+def test_stac_metadata_caches_do_not_keep_client_alive():
+    item = SimpleNamespace(id="AS21")
+    collection = FakeCollection([item])
+    client = StacCatalogClient(client=FakeCatalogClient({"lidar": collection}))
+    client_ref = weakref.ref(client)
+
+    client._get_collection("lidar")
+    client._get_item(collection, "AS21")
+    del client
+    gc.collect()
+
+    assert client_ref() is None
 
 
 def test_stac_get_item_reads_from_collection():

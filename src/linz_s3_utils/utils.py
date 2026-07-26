@@ -4,11 +4,18 @@ import numpy as np
 import xarray as xr
 
 
-def _select_along_axis(values: np.ndarray, idx: np.ndarray, axis: int) -> np.ndarray:
-    """Select values from an array using indices along a specific axis."""
-    other_ind = np.ix_(*[np.arange(s) for s in idx.shape])
-    sl = other_ind[:axis] + (idx,) + other_ind[axis:]
-    return values[sl]
+def _last_valid(values: np.ndarray, valid: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Select last valid values and their zero-based indices on the final axis."""
+    index = np.where(valid, np.arange(values.shape[-1]), -1).max(axis=-1)
+    value = np.take_along_axis(values, np.maximum(index, 0)[..., np.newaxis], axis=-1)[
+        ..., 0
+    ]
+    return value, index
+
+
+def _coordinate_at_index(index: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Select one dimension coordinate for each index."""
+    return values[index]
 
 
 def last(
@@ -41,19 +48,34 @@ def last(
         msg = f"Dimension {dim!r} not found in DataArray dims {array.dims!r}."
         raise ValueError(msg)
 
-    axis = array.get_axis_num(dim)
+    if array.chunks is not None:
+        array = array.chunk({dim: -1})
     is_valid = ~array.isnull()
     has_valid = is_valid.any(dim=dim)
-    rev = (slice(None),) * axis + (slice(None, None, -1),)
-    idx_last = -1 - np.argmax(is_valid[rev].data, axis=axis)
-    reduced = array.reduce(_select_along_axis, idx=idx_last, axis=axis)
-
-    idx_da = xr.DataArray(idx_last, dims=reduced.dims)
+    reduced, index = xr.apply_ufunc(
+        _last_valid,
+        array,
+        is_valid,
+        input_core_dims=[[dim], [dim]],
+        output_core_dims=[[], []],
+        dask="parallelized",
+        output_dtypes=[array.dtype, np.intp],
+    )
     reduced = reduced.where(has_valid)
-    reduced[dim] = array[dim].isel({dim: idx_da}).where(has_valid)
 
+    if not drop:
+        coordinate = xr.apply_ufunc(
+            _coordinate_at_index,
+            index,
+            array[dim],
+            input_core_dims=[[], [dim]],
+            output_core_dims=[[]],
+            dask="parallelized",
+            output_dtypes=[array[dim].dtype],
+        ).where(has_valid)
+        reduced = reduced.assign_coords({dim: coordinate})
     if index_name is not None:
-        reduced[index_name] = idx_da.where(has_valid)
-    if drop:
-        reduced = reduced.drop_vars(dim)
+        reduced = reduced.assign_coords(
+            {index_name: (index - array.sizes[dim]).where(has_valid)}
+        )
     return reduced

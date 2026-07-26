@@ -1,6 +1,5 @@
 from collections.abc import Iterator
 from enum import Enum
-from functools import lru_cache
 from itertools import chain, islice
 from pathlib import Path
 from typing import Any, Literal
@@ -117,6 +116,8 @@ class StacCatalogClient:
             if client is None
             else client
         )
+        self._collections: dict[str, Collection] = {}
+        self._items: dict[tuple[Any, str], Item | None] = {}
 
     def search(
         self,
@@ -232,12 +233,15 @@ class StacCatalogClient:
         ds = ds.rename({"visual": self.catalog})
         return ds
 
-    @lru_cache(maxsize=None)
     def _get_collection(self, collection_id: str) -> Collection:
         """Get metadata for a collection."""
-        return self.client.get_collection(collection_id)
+        if collection_id not in self._collections:
+            self._collections[collection_id] = self.client.get_collection(collection_id)
+        return self._collections[collection_id]
 
-    @lru_cache(maxsize=None)
-    def _get_item(self, collection: Collection, item_id: str) -> Item | None:
+    def _get_item(self, collection: Any, item_id: str) -> Item | None:
         """Get metadata for an item."""
-        return collection.get_item(item_id)
+        key = (collection, item_id)
+        if key not in self._items:
+            self._items[key] = collection.get_item(item_id)
+        return self._items[key]
