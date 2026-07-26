@@ -18,17 +18,25 @@ It exists to make LINZ elevation access simpler in Python scripts and notebooks.
 - focused on the public `nz-elevation` catalog
 - aimed at data access, loading, and optional DEM export rather than a general CLI workflow
 
+This is an independent project and is not affiliated with or endorsed by Land
+Information New Zealand (LINZ).
+
 ## Installation
 
 Requirements:
 
-- Python 3.13+
-- `uv`
+- Python 3.11+
 
-Install the project and development dependencies:
+Install with `uv`:
 
 ```bash
-uv sync
+uv add linz-s3-utils
+```
+
+Or install with `pip`:
+
+```bash
+python -m pip install linz-s3-utils
 ```
 
 ## Usage
@@ -36,7 +44,7 @@ uv sync
 Load the latest New Zealand LiDAR 1 m DEM surface for a bounding box, at a chosen output resolution:
 
 ```python
-from linz_s3_utils.elevation import load_elevation
+from linz_s3_utils import load_elevation
 
 lidar = load_elevation(
     bbox=(172.6300, -43.5350, 172.6400, -43.5250),
@@ -52,6 +60,10 @@ lidar = load_elevation(
 - `intersects` accepts an ODC geometry, Shapely geometry, GeoJSON mapping, or an object with `__geo_interface__`; Shapely and GeoJSON inputs are interpreted as `EPSG:4326`.
 - `crs` defaults to `EPSG:2193`; `resolution` is in the output CRS units and defaults to ODC's source-grid resolution.
 - `intersects` crops and masks the output polygon with all touched pixels retained.
+- The latest surface selects the last non-null value for each pixel after
+  sorting observations by time.
+- Supplying `chunks` returns a Dask-backed surface and preserves spatial chunk
+  boundaries.
 - Set `overwrite=True` to replace an existing output file.
 
 Use a polygon when the rectangular `bbox` is not precise enough:
@@ -74,7 +86,7 @@ lidar = load_elevation(
 For lower-level catalog access, use `StacCatalogClient` directly:
 
 ```python
-from linz_s3_utils.stac import StacCatalogClient
+from linz_s3_utils import StacCatalogClient
 
 client = StacCatalogClient()
 dataset = client.load(
@@ -86,9 +98,10 @@ dataset = client.load(
 
 `load()` filters static-catalog items locally before loading them. It supports
 `bbox`, `intersects`, item IDs, and a positive result limit. It defaults to
-`EPSG:2193`, and resolutions are specified in metres.
+`EPSG:2193`, and resolutions are specified in the output CRS units.
 
-See `src/examples/elevation.ipynb` for an interactive example.
+See the [regional elevation example](https://github.com/quinnhornblow/linz-s3-utils/blob/main/src/examples/elevation.ipynb)
+for an interactive workflow.
 
 ## Notes
 
@@ -100,7 +113,7 @@ Configure caching by creating and injecting a STAC IO instance:
 ```python
 from pathlib import Path
 
-from linz_s3_utils.stac import StacCatalogClient, build_stac_io
+from linz_s3_utils import StacCatalogClient, build_stac_io
 
 client = StacCatalogClient(
     stac_io=build_stac_io(
@@ -113,6 +126,12 @@ client = StacCatalogClient(
 Pass `cache=False` to `build_stac_io()` to use an uncached STAC session.
 
 ## Development
+
+Install the project and development dependencies:
+
+```bash
+uv sync
+```
 
 Run tests:
 

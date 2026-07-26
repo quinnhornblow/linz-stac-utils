@@ -10,7 +10,6 @@ import requests_cache
 import xarray as xr
 from odc.geo import Geometry, MaybeCRS, SomeResolution
 from platformdirs import user_cache_path
-from pydantic import BaseModel
 from pystac import Collection
 from pystac.item import Item
 from pystac_client import Client
@@ -29,12 +28,6 @@ DEFAULT_CACHE_EXPIRY_SECONDS = 86400
 
 class CatalogURLs(Enum):  # noqa: D101
     ELEVATION = "https://nz-elevation.s3-ap-southeast-2.amazonaws.com/catalog.json"
-
-
-class LINZCollection(BaseModel):  # noqa: D101
-    id: str
-    title: str
-    linz_geospatial_category: Literal["dem"]
 
 
 def _geometry_from_intersects(intersects: Any) -> BaseGeometry:

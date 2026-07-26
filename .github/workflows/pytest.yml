@@ -1,18 +1,43 @@
-name: Python tests
+name: Checks
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  checks:
-    name: Test and lint
+  tests:
+    name: Python ${{ matrix.python-version }} tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Sync project dependencies
+        run: uv sync --locked --dev
+
+      - name: Run tests
+        run: uv run pytest tests
+
+  package:
+    name: Package checks
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.11"
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -23,5 +48,41 @@ jobs:
       - name: Run pre-commit checks
         run: uv run pre-commit run --all-files
 
-      - name: Run tests
-        run: uv run pytest tests
+      - name: Check dependencies
+        run: uv run deptry .
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx --from twine==6.2.0 twine check dist/*
+
+      - name: Verify distribution contents
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          from tarfile import open as open_tar
+          from zipfile import ZipFile
+
+          distributions = Path("dist")
+          with ZipFile(next(distributions.glob("*.whl"))) as wheel:
+              wheel_names = wheel.namelist()
+          with open_tar(next(distributions.glob("*.tar.gz"))) as source:
+              source_names = source.getnames()
+
+          for names in (wheel_names, source_names):
+              assert not any(name.endswith(".sqlite") for name in names)
+              assert any(name.endswith("LICENSE") for name in names)
+          PY
+
+      - name: Smoke test installed wheel
+        run: |
+          uv venv --python 3.11 .wheel-venv
+          uv pip install --python .wheel-venv/bin/python dist/*.whl
+          .wheel-venv/bin/python -c "from linz_s3_utils import load_elevation"
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distributions
+          path: dist/
