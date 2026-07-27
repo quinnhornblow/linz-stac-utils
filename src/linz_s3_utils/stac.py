@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from enum import Enum
 from itertools import chain, islice
 from pathlib import Path
@@ -193,11 +193,13 @@ class StacCatalogClient:
         crs: MaybeCRS = "EPSG:2193",
         resolution: SomeResolution | None = 100,
         progress: Any = None,
+        groupby: str | Callable[[Item, Any, int], Any] | None = "time",
     ) -> xr.Dataset:
         """Filter static-catalog items and load them with ``odc.stac.load``.
 
         Spatial selectors reduce the source items locally and are also passed
-        to ODC to constrain the output grid.
+        to ODC to constrain the output grid. ``groupby`` controls which items
+        share an ODC time plane.
         """
         items = list(
             self.search(
@@ -215,6 +217,7 @@ class StacCatalogClient:
 
         ds = odc.stac.load(
             items,
+            groupby=groupby,
             resampling=resampling,
             chunks=chunks,
             crs=crs,

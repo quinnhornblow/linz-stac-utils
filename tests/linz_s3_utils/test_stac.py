@@ -319,6 +319,27 @@ def test_stac_load_passes_selected_items_to_odc_stac_load(monkeypatch):
     assert list(result.data_vars) == ["elevation"]
 
 
+def test_stac_load_passes_groupby_to_odc_stac_load(monkeypatch):
+    item = SimpleNamespace(id="AS21")
+    dataset = xr.Dataset({"visual": xr.DataArray([1.0], dims=("y",))})
+    captured: dict[str, object] = {}
+
+    def fake_load(items, **kwargs):
+        captured["items"] = list(items)
+        captured.update(kwargs)
+        return dataset
+
+    monkeypatch.setattr(stac_module.odc.stac, "load", fake_load)
+    client = StacCatalogClient(
+        client=FakeCatalogClient({"lidar": FakeCollection([item])})
+    )
+
+    client.load(collections=["lidar"], groupby="id")
+
+    assert captured["items"] == [item]
+    assert captured["groupby"] == "id"
+
+
 @pytest.mark.parametrize(
     ("parameter_name", "parameter_value"),
     [

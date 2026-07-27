@@ -20,7 +20,8 @@ load_elevation / ElevationClient
         -> optional COG output
 ```
 
-- `elevation.py` owns the user-facing elevation workflow and product defaults.
+- `elevation.py` owns the user-facing elevation workflow, source priority, and
+  product defaults.
 - `stac.py` owns catalog access, request caching, local item filtering, and
   delegation to `odc.stac.load`.
 - `utils.py` owns pure xarray array transformations.
@@ -34,8 +35,13 @@ module. The lower-level modules do not depend on the elevation facade.
 - Keep external effects at the catalog, raster-loading, and output boundaries.
 - Keep raster transformations compatible with NumPy and Dask-backed xarray
   arrays.
-- Define the latest elevation surface as the last non-null value per pixel
-  after sorting by the `time` coordinate.
+- Define the LiDAR surface as the last non-null value per pixel after sorting
+  by the `time` coordinate.
+- Define the composite surface by loading contour observations before LiDAR
+  observations, then taking the last non-null value per pixel. This ensures
+  LiDAR fills take precedence regardless of product timestamps.
+- Require an explicit composite output resolution because the catalog items do
+  not provide enough projection metadata for reliable automatic grid inference.
 - Use ordinary constructor injection for catalog clients and STAC IO. Do not
   introduce a dependency-injection container.
 - Add a small elevation-product descriptor only when collection discovery
