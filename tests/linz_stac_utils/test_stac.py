@@ -1,4 +1,6 @@
 # ruff: noqa: D103
+import gc
+import weakref
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,8 +15,8 @@ from pystac import Collection, Item
 from pystac_client.stac_api_io import StacApiIO
 from shapely.geometry import Point, Polygon
 
-import linz_s3_utils.stac as stac_module
-from linz_s3_utils.stac import StacCatalogClient, build_stac_io
+import linz_stac_utils.stac as stac_module
+from linz_stac_utils.stac import StacCatalogClient, build_stac_io
 
 REGIONAL_POLYGON = Polygon(
     [
@@ -317,6 +319,27 @@ def test_stac_load_passes_selected_items_to_odc_stac_load(monkeypatch):
     assert list(result.data_vars) == ["elevation"]
 
 
+def test_stac_load_passes_groupby_to_odc_stac_load(monkeypatch):
+    item = SimpleNamespace(id="AS21")
+    dataset = xr.Dataset({"visual": xr.DataArray([1.0], dims=("y",))})
+    captured: dict[str, object] = {}
+
+    def fake_load(items, **kwargs):
+        captured["items"] = list(items)
+        captured.update(kwargs)
+        return dataset
+
+    monkeypatch.setattr(stac_module.odc.stac, "load", fake_load)
+    client = StacCatalogClient(
+        client=FakeCatalogClient({"lidar": FakeCollection([item])})
+    )
+
+    client.load(collections=["lidar"], groupby="id")
+
+    assert captured["items"] == [item]
+    assert captured["groupby"] == "id"
+
+
 @pytest.mark.parametrize(
     ("parameter_name", "parameter_value"),
     [
@@ -416,7 +439,7 @@ def test_stac_invalid_catalog():
 
 def test_default_cache_path_uses_user_cache_directory():
     assert stac_module.DEFAULT_CACHE_PATH == (
-        user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
+        user_cache_path("linz-stac-utils", appauthor=False) / "stac.sqlite"
     )
 
 
@@ -506,6 +529,20 @@ def test_stac_get_collection_uses_injected_client():
     metadata = client._get_collection("lidar")
 
     assert metadata is collection
+
+
+def test_stac_metadata_caches_do_not_keep_client_alive():
+    item = SimpleNamespace(id="AS21")
+    collection = FakeCollection([item])
+    client = StacCatalogClient(client=FakeCatalogClient({"lidar": collection}))
+    client_ref = weakref.ref(client)
+
+    client._get_collection("lidar")
+    client._get_item(collection, "AS21")
+    del client
+    gc.collect()
+
+    assert client_ref() is None
 
 
 def test_stac_get_item_reads_from_collection():

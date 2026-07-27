@@ -1,6 +1,6 @@
-# linz-s3-utils
+# linz-stac-utils
 
-`linz-s3-utils` is a small Python library for querying and loading public LINZ elevation datasets from the `nz-elevation` STAC catalog hosted in S3.
+`linz-stac-utils` is a small Python library for querying and loading public LINZ elevation datasets from the `nz-elevation` STAC catalog hosted in S3.
 
 It exists to make LINZ elevation access simpler in Python scripts and notebooks. Instead of repeatedly wiring together `pystac-client`, cached catalog requests, and `odc.stac` loading logic, this package provides a thin reusable wrapper around that workflow.
 
@@ -9,7 +9,7 @@ It exists to make LINZ elevation access simpler in Python scripts and notebooks.
 - opens the public LINZ elevation STAC catalog
 - fetches collection and item metadata
 - loads STAC results into `xarray` objects with `odc.stac`
-- loads the latest New Zealand LiDAR 1 m DEM surface for an ODC-style spatial query
+- loads a New Zealand elevation surface, preferring the LiDAR 1 m DEM and using the contour-interpolated 8 m DEM to fill LiDAR gaps
 - optionally exports the loaded surface as a Cloud Optimized GeoTIFF
 
 ## Current Scope
@@ -18,27 +18,37 @@ It exists to make LINZ elevation access simpler in Python scripts and notebooks.
 - focused on the public `nz-elevation` catalog
 - aimed at data access, loading, and optional DEM export rather than a general CLI workflow
 
+This is an independent project and is not affiliated with or endorsed by Land
+Information New Zealand (LINZ).
+
 ## Installation
 
 Requirements:
 
-- Python 3.13+
-- `uv`
+- Python 3.11+
 
-Install the project and development dependencies:
+Install with `uv`:
 
 ```bash
-uv sync
+uv add linz-stac-utils
+```
+
+Or install with `pip`:
+
+```bash
+python -m pip install linz-stac-utils
 ```
 
 ## Usage
 
-Load the latest New Zealand LiDAR 1 m DEM surface for a bounding box, at a chosen output resolution:
+Load an elevation surface for a bounding box at a chosen output resolution. Valid
+LiDAR pixels take precedence; the contour-interpolated 8 m DEM fills locations
+without LiDAR coverage:
 
 ```python
-from linz_s3_utils.elevation import load_elevation
+from linz_stac_utils import load_elevation
 
-lidar = load_elevation(
+elevation = load_elevation(
     bbox=(172.6300, -43.5350, 172.6400, -43.5250),
     resolution=10,
     output_path="christchurch-dem.tif",
@@ -50,8 +60,12 @@ lidar = load_elevation(
 - Provide exactly one of `bbox` or `intersects`; calls with neither or both are rejected.
 - `bbox` is `(min_longitude, min_latitude, max_longitude, max_latitude)` in `EPSG:4326`.
 - `intersects` accepts an ODC geometry, Shapely geometry, GeoJSON mapping, or an object with `__geo_interface__`; Shapely and GeoJSON inputs are interpreted as `EPSG:4326`.
-- `crs` defaults to `EPSG:2193`; `resolution` is in the output CRS units and defaults to ODC's source-grid resolution.
+- `crs` defaults to `EPSG:2193`; `resolution` is required and is in the output CRS units.
 - `intersects` crops and masks the output polygon with all touched pixels retained.
+- The latest valid LiDAR value takes precedence for each pixel. The contour
+  surface fills only pixels with no valid LiDAR value.
+- Supplying `chunks` returns a Dask-backed surface and preserves spatial chunk
+  boundaries.
 - Set `overwrite=True` to replace an existing output file.
 
 Use a polygon when the rectangular `bbox` is not precise enough:
@@ -59,7 +73,7 @@ Use a polygon when the rectangular `bbox` is not precise enough:
 ```python
 from shapely.geometry import Polygon
 
-lidar = load_elevation(
+elevation = load_elevation(
     intersects=Polygon(
         [
             (172.6300, -43.5350),
@@ -74,7 +88,7 @@ lidar = load_elevation(
 For lower-level catalog access, use `StacCatalogClient` directly:
 
 ```python
-from linz_s3_utils.stac import StacCatalogClient
+from linz_stac_utils import StacCatalogClient
 
 client = StacCatalogClient()
 dataset = client.load(
@@ -86,21 +100,23 @@ dataset = client.load(
 
 `load()` filters static-catalog items locally before loading them. It supports
 `bbox`, `intersects`, item IDs, and a positive result limit. It defaults to
-`EPSG:2193`, and resolutions are specified in metres.
+`EPSG:2193`, and resolutions are specified in the output CRS units.
 
-See `src/examples/elevation.ipynb` for an interactive example.
+See the [regional elevation example](https://github.com/quinnhornblow/linz-stac-utils/blob/main/src/examples/elevation.ipynb)
+for an interactive workflow.
 
 ## Notes
 
 - network access is required to read remote catalog and raster data
 - STAC API responses are cached locally with `requests-cache` for one day by default. The cache is created when a client is initialized in your platform's user cache directory, rather than in the installed package directory.
+- LINZ describes the contour-interpolated 8 m DEM as suitable for cartographic visualization and not suitable for terrain analysis. Its use as a fallback does not make the output a LiDAR-quality terrain model.
 
 Configure caching by creating and injecting a STAC IO instance:
 
 ```python
 from pathlib import Path
 
-from linz_s3_utils.stac import StacCatalogClient, build_stac_io
+from linz_stac_utils import StacCatalogClient, build_stac_io
 
 client = StacCatalogClient(
     stac_io=build_stac_io(
@@ -113,6 +129,12 @@ client = StacCatalogClient(
 Pass `cache=False` to `build_stac_io()` to use an uncached STAC session.
 
 ## Development
+
+Install the project and development dependencies:
+
+```bash
+uv sync
+```
 
 Run tests:
 

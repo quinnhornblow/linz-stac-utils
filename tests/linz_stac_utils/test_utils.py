@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 import xarray as xr
+from dask import array as da
 
-from linz_s3_utils.utils import last
+from linz_stac_utils.utils import last
 
 
 def test_last_returns_last_non_null_value_and_coordinate():
@@ -43,3 +44,37 @@ def test_last_raises_for_unknown_dimension():
 
     with pytest.raises(ValueError, match="Dimension 'x' not found"):
         last(array, dim="x")
+
+
+def test_last_returns_a_computable_dask_array():
+    array = xr.DataArray(
+        da.from_array(
+            [[[1.0, np.nan], [np.nan, 4.0]], [[2.0, 3.0], [5.0, np.nan]]],
+            chunks=(1, 2, 2),
+        ),
+        dims=("time", "y", "x"),
+        coords={"time": [10, 20], "y": [0, 1], "x": [0, 1]},
+    )
+
+    result = last(array, dim="time")
+
+    assert isinstance(result.data, da.Array)
+    assert result.chunksizes == {"y": (2,), "x": (2,)}
+    np.testing.assert_allclose(
+        result.compute().values,
+        [[2.0, 3.0], [5.0, 4.0]],
+        equal_nan=True,
+    )
+
+
+def test_last_retains_dask_provenance_coordinates():
+    array = xr.DataArray(
+        da.from_array([[1.0, np.nan], [np.nan, 4.0]], chunks=(1, 2)),
+        dims=("y", "time"),
+        coords={"time": [10, 20], "y": [0, 1]},
+    )
+
+    result = last(array, dim="time", index_name="time_index", drop=False).compute()
+
+    assert result["time"].values.tolist() == [10.0, 20.0]
+    assert result["time_index"].values.tolist() == [-2.0, -1.0]

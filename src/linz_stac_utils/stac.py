@@ -1,6 +1,5 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from enum import Enum
-from functools import lru_cache
 from itertools import chain, islice
 from pathlib import Path
 from typing import Any, Literal
@@ -11,7 +10,6 @@ import requests_cache
 import xarray as xr
 from odc.geo import Geometry, MaybeCRS, SomeResolution
 from platformdirs import user_cache_path
-from pydantic import BaseModel
 from pystac import Collection
 from pystac.item import Item
 from pystac_client import Client
@@ -24,18 +22,12 @@ from shapely.geometry.base import BaseGeometry
 filterwarnings("ignore", category=NoConformsTo)
 filterwarnings("ignore", category=FallbackToPystac)
 
-DEFAULT_CACHE_PATH = user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
+DEFAULT_CACHE_PATH = user_cache_path("linz-stac-utils", appauthor=False) / "stac.sqlite"
 DEFAULT_CACHE_EXPIRY_SECONDS = 86400
 
 
 class CatalogURLs(Enum):  # noqa: D101
     ELEVATION = "https://nz-elevation.s3-ap-southeast-2.amazonaws.com/catalog.json"
-
-
-class LINZCollection(BaseModel):  # noqa: D101
-    id: str
-    title: str
-    linz_geospatial_category: Literal["dem"]
 
 
 def _geometry_from_intersects(intersects: Any) -> BaseGeometry:
@@ -117,6 +109,8 @@ class StacCatalogClient:
             if client is None
             else client
         )
+        self._collections: dict[str, Collection] = {}
+        self._items: dict[tuple[Any, str], Item | None] = {}
 
     def search(
         self,
@@ -199,11 +193,13 @@ class StacCatalogClient:
         crs: MaybeCRS = "EPSG:2193",
         resolution: SomeResolution | None = 100,
         progress: Any = None,
+        groupby: str | Callable[[Item, Any, int], Any] | None = "time",
     ) -> xr.Dataset:
         """Filter static-catalog items and load them with ``odc.stac.load``.
 
         Spatial selectors reduce the source items locally and are also passed
-        to ODC to constrain the output grid.
+        to ODC to constrain the output grid. ``groupby`` controls which items
+        share an ODC time plane.
         """
         items = list(
             self.search(
@@ -221,6 +217,7 @@ class StacCatalogClient:
 
         ds = odc.stac.load(
             items,
+            groupby=groupby,
             resampling=resampling,
             chunks=chunks,
             crs=crs,
@@ -232,12 +229,15 @@ class StacCatalogClient:
         ds = ds.rename({"visual": self.catalog})
         return ds
 
-    @lru_cache(maxsize=None)
     def _get_collection(self, collection_id: str) -> Collection:
         """Get metadata for a collection."""
-        return self.client.get_collection(collection_id)
+        if collection_id not in self._collections:
+            self._collections[collection_id] = self.client.get_collection(collection_id)
+        return self._collections[collection_id]
 
-    @lru_cache(maxsize=None)
-    def _get_item(self, collection: Collection, item_id: str) -> Item | None:
+    def _get_item(self, collection: Any, item_id: str) -> Item | None:
         """Get metadata for an item."""
-        return collection.get_item(item_id)
+        key = (collection, item_id)
+        if key not in self._items:
+            self._items[key] = collection.get_item(item_id)
+        return self._items[key]
