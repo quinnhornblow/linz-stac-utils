@@ -79,7 +79,7 @@ jobs:
         run: |
           uv venv --python 3.11 .wheel-venv
           uv pip install --python .wheel-venv/bin/python dist/*.whl
-          .wheel-venv/bin/python -c "from linz_s3_utils import load_elevation"
+          .wheel-venv/bin/python -c "from linz_stac_utils import load_elevation"
 
       - name: Upload distributions
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

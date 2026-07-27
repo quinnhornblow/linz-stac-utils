@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/linz-s3-utils
+      url: https://pypi.org/p/linz-stac-utils
     permissions:
       id-token: write
 

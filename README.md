@@ -1,6 +1,6 @@
-# linz-s3-utils
+# linz-stac-utils
 
-`linz-s3-utils` is a small Python library for querying and loading public LINZ elevation datasets from the `nz-elevation` STAC catalog hosted in S3.
+`linz-stac-utils` is a small Python library for querying and loading public LINZ elevation datasets from the `nz-elevation` STAC catalog hosted in S3.
 
 It exists to make LINZ elevation access simpler in Python scripts and notebooks. Instead of repeatedly wiring together `pystac-client`, cached catalog requests, and `odc.stac` loading logic, this package provides a thin reusable wrapper around that workflow.
 
@@ -30,13 +30,13 @@ Requirements:
 Install with `uv`:
 
 ```bash
-uv add linz-s3-utils
+uv add linz-stac-utils
 ```
 
 Or install with `pip`:
 
 ```bash
-python -m pip install linz-s3-utils
+python -m pip install linz-stac-utils
 ```
 
 ## Usage
@@ -46,7 +46,7 @@ LiDAR pixels take precedence; the contour-interpolated 8 m DEM fills locations
 without LiDAR coverage:
 
 ```python
-from linz_s3_utils import load_elevation
+from linz_stac_utils import load_elevation
 
 elevation = load_elevation(
     bbox=(172.6300, -43.5350, 172.6400, -43.5250),
@@ -88,7 +88,7 @@ elevation = load_elevation(
 For lower-level catalog access, use `StacCatalogClient` directly:
 
 ```python
-from linz_s3_utils import StacCatalogClient
+from linz_stac_utils import StacCatalogClient
 
 client = StacCatalogClient()
 dataset = client.load(
@@ -102,7 +102,7 @@ dataset = client.load(
 `bbox`, `intersects`, item IDs, and a positive result limit. It defaults to
 `EPSG:2193`, and resolutions are specified in the output CRS units.
 
-See the [regional elevation example](https://github.com/quinnhornblow/linz-s3-utils/blob/main/src/examples/elevation.ipynb)
+See the [regional elevation example](https://github.com/quinnhornblow/linz-stac-utils/blob/main/src/examples/elevation.ipynb)
 for an interactive workflow.
 
 ## Notes
@@ -116,7 +116,7 @@ Configure caching by creating and injecting a STAC IO instance:
 ```python
 from pathlib import Path
 
-from linz_s3_utils import StacCatalogClient, build_stac_io
+from linz_stac_utils import StacCatalogClient, build_stac_io
 
 client = StacCatalogClient(
     stac_io=build_stac_io(

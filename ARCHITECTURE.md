@@ -2,7 +2,7 @@
 
 ## Purpose And Scope
 
-`linz-s3-utils` is a small Python library for accessing public LINZ elevation
+`linz-stac-utils` is a small Python library for accessing public LINZ elevation
 data in scripts and notebooks. Its supported workflow is to select a bounded
 region, load an elevation surface, optionally mask it to a polygon, and
 optionally write a Cloud Optimized GeoTIFF.
@@ -56,16 +56,16 @@ operational boundary.
 
 ## Roadmap And Triggers
 
-- [#9](https://github.com/quinnhornblow/linz-s3-utils/issues/9): make the
+- [#9](https://github.com/quinnhornblow/linz-stac-utils/issues/9): make the
   package release-ready with accurate metadata, declared dependencies, and
   build verification.
-- [#11](https://github.com/quinnhornblow/linz-s3-utils/issues/11): expose
+- [#11](https://github.com/quinnhornblow/linz-stac-utils/issues/11): expose
   elevation collection discovery and stable friendly names. Keep raw provider
   IDs supported.
-- [#12](https://github.com/quinnhornblow/linz-s3-utils/issues/12): provide a
+- [#12](https://github.com/quinnhornblow/linz-stac-utils/issues/12): provide a
   runnable regional loading example and document network, CRS, resolution, and
   temporal behavior.
-- [#16](https://github.com/quinnhornblow/linz-s3-utils/issues/16): centralize
+- [#16](https://github.com/quinnhornblow/linz-stac-utils/issues/16): centralize
   spatial-selector validation and geometry normalization before external work.
 
 Measure static-catalog traversal before adding search infrastructure. A larger

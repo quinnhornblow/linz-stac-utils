@@ -15,8 +15,8 @@ from pystac import Collection, Item
 from pystac_client.stac_api_io import StacApiIO
 from shapely.geometry import Point, Polygon
 
-import linz_s3_utils.stac as stac_module
-from linz_s3_utils.stac import StacCatalogClient, build_stac_io
+import linz_stac_utils.stac as stac_module
+from linz_stac_utils.stac import StacCatalogClient, build_stac_io
 
 REGIONAL_POLYGON = Polygon(
     [
@@ -439,7 +439,7 @@ def test_stac_invalid_catalog():
 
 def test_default_cache_path_uses_user_cache_directory():
     assert stac_module.DEFAULT_CACHE_PATH == (
-        user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
+        user_cache_path("linz-stac-utils", appauthor=False) / "stac.sqlite"
     )
 
 

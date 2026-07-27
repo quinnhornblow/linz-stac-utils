@@ -8,8 +8,8 @@ from odc.geo.geom import Geometry
 from odc.geo.xr import crop
 from shapely.geometry.base import BaseGeometry
 
-from linz_s3_utils.stac import StacCatalogClient
-from linz_s3_utils.utils import last
+from linz_stac_utils.stac import StacCatalogClient
+from linz_stac_utils.utils import last
 
 LIDAR_1M_DEM_COLLECTION_ID = "01JE4ZZWAG19KPKRHYJJP02HC9"
 CONTOUR_8M_DEM_COLLECTION_ID = "01JE7NNKVY3QP5FPX2Q08DJQX5"

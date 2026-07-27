@@ -8,7 +8,7 @@ from odc.geo.geobox import GeoBox
 from odc.geo.xr import wrap_xr
 from shapely.geometry import Polygon
 
-from linz_s3_utils.elevation import (
+from linz_stac_utils.elevation import (
     LIDAR_1M_DEM_COLLECTION_ID,
     ElevationClient,
     latest_elevation_surface,
@@ -310,7 +310,7 @@ def test_load_elevation_normalizes_intersects_and_delegates(
     monkeypatch.setattr(ElevationClient, "load_dem", fake_load_dem, raising=False)
     monkeypatch.setattr(ElevationClient, "load_lidar_dem", fail_load_lidar_dem)
     monkeypatch.setattr(ElevationClient, "__init__", lambda self: None)
-    monkeypatch.setattr("linz_s3_utils.elevation.crop", fake_crop)
+    monkeypatch.setattr("linz_stac_utils.elevation.crop", fake_crop)
 
     result = load_elevation(
         intersects=intersects,
@@ -350,7 +350,7 @@ def test_load_elevation_masks_intersects_and_writes_cog(monkeypatch, tmp_path: P
     monkeypatch.setattr(ElevationClient, "load_dem", fake_load_dem, raising=False)
     monkeypatch.setattr(ElevationClient, "load_lidar_dem", fail_load_lidar_dem)
     monkeypatch.setattr(ElevationClient, "__init__", lambda self: None)
-    monkeypatch.setattr("linz_s3_utils.elevation.write_cog", fake_write_cog)
+    monkeypatch.setattr("linz_stac_utils.elevation.write_cog", fake_write_cog)
 
     output_path = tmp_path / "elevation.tif"
     result = load_elevation(
@@ -398,7 +398,7 @@ def test_load_elevation_computes_delayed_cog_write(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(ElevationClient, "load_dem", fake_load_dem, raising=False)
     monkeypatch.setattr(ElevationClient, "load_lidar_dem", fail_load_lidar_dem)
     monkeypatch.setattr(ElevationClient, "__init__", lambda self: None)
-    monkeypatch.setattr("linz_s3_utils.elevation.write_cog", fake_write_cog)
+    monkeypatch.setattr("linz_stac_utils.elevation.write_cog", fake_write_cog)
 
     load_elevation(
         bbox=(172.0, -43.0, 173.0, -42.0),

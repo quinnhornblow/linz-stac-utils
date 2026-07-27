@@ -3,18 +3,18 @@
 ## Project Structure & Module Organization
 
 This is a Python package using a `src` layout. Runtime code lives in
-`src/linz_s3_utils/`, currently centered on `stac.py` and `elevation.py`.
+`src/linz_stac_utils/`, currently centered on `stac.py` and `elevation.py`.
 Example notebooks live in `src/examples/`. Tests live under
-`tests/linz_s3_utils/`, with shared pytest setup in `tests/conftest.py`.
+`tests/linz_stac_utils/`, with shared pytest setup in `tests/conftest.py`.
 
-Keep public package modules under `src/linz_s3_utils/` and mirror new test
-coverage in `tests/linz_s3_utils/test_<module>.py`.
+Keep public package modules under `src/linz_stac_utils/` and mirror new test
+coverage in `tests/linz_stac_utils/test_<module>.py`.
 
 ## Build, Test, and Development Commands
 
 - `uv sync`: install the project and development dependencies from `uv.lock`.
 - `uv run pytest`: run the full test suite.
-- `uv run pytest tests/linz_s3_utils/test_stac.py -q`: run the current STAC tests.
+- `uv run pytest tests/linz_stac_utils/test_stac.py -q`: run the current STAC tests.
 - `uv run ruff check .`: lint Python, notebooks, and `pyproject.toml`.
 - `uv run ruff format .`: format Python and notebooks.
 - `uv build`: build the package artifacts.

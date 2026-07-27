@@ -6,8 +6,8 @@ tag until the release PR has merged and its checks have passed.
 ## One-Time Setup
 
 1. Create a pending Trusted Publisher at
-   <https://pypi.org/manage/account/publishing/> for `linz-s3-utils`.
-2. Set the owner to `quinnhornblow`, repository to `linz-s3-utils`, workflow to
+   <https://pypi.org/manage/account/publishing/> for `linz-stac-utils`.
+2. Set the owner to `quinnhornblow`, repository to `linz-stac-utils`, workflow to
    `.github/workflows/publish.yml`, and environment to `pypi`.
 3. Create the `pypi` GitHub environment and require manual approval before
    deployment.
@@ -26,7 +26,7 @@ tag until the release PR has merged and its checks have passed.
 5. Verify installation from PyPI:
 
    ```bash
-   python -m pip install linz-s3-utils
+   python -m pip install linz-stac-utils
    ```
 
 6. Create GitHub release notes and close the release-readiness issue.

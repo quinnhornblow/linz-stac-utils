@@ -1007,7 +1007,7 @@ wheels = [
 ]
 
 [[package]]
-name = "linz-s3-utils"
+name = "linz-stac-utils"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

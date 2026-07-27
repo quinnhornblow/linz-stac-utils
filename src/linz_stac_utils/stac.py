@@ -22,7 +22,7 @@ from shapely.geometry.base import BaseGeometry
 filterwarnings("ignore", category=NoConformsTo)
 filterwarnings("ignore", category=FallbackToPystac)
 
-DEFAULT_CACHE_PATH = user_cache_path("linz-s3-utils", appauthor=False) / "stac.sqlite"
+DEFAULT_CACHE_PATH = user_cache_path("linz-stac-utils", appauthor=False) / "stac.sqlite"
 DEFAULT_CACHE_EXPIRY_SECONDS = 86400
 
 

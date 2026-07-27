@@ -1,7 +1,7 @@
 import pytest
 from pystac_client.stac_api_io import StacApiIO
 
-import linz_s3_utils.stac as stac_module
+import linz_stac_utils.stac as stac_module
 
 
 def pytest_addoption(parser):

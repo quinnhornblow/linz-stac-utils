@@ -3,7 +3,7 @@ import pytest
 import xarray as xr
 from dask import array as da
 
-from linz_s3_utils.utils import last
+from linz_stac_utils.utils import last
 
 
 def test_last_returns_last_non_null_value_and_coordinate():

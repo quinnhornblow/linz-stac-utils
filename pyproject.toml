@@ -1,5 +1,5 @@
 [project]
-name = "linz-s3-utils"
+name = "linz-stac-utils"
 version = "0.1.0"
 description = "Load public LINZ elevation data from the nz-elevation STAC catalog."
 readme = "README.md"
@@ -35,9 +35,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/quinnhornblow/linz-s3-utils"
-Issues = "https://github.com/quinnhornblow/linz-s3-utils/issues"
-Repository = "https://github.com/quinnhornblow/linz-s3-utils"
+Homepage = "https://github.com/quinnhornblow/linz-stac-utils"
+Issues = "https://github.com/quinnhornblow/linz-stac-utils/issues"
+Repository = "https://github.com/quinnhornblow/linz-stac-utils"
 
 [build-system]
 requires = ["uv_build>=0.10.11,<0.11.0"]
@@ -56,7 +56,7 @@ dev = [
 ]
 
 [tool.deptry]
-known_first_party = ["linz_s3_utils"]
+known_first_party = ["linz_stac_utils"]
 
 [tool.pytest.ini_options]
 markers = [
